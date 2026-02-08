@@ -470,6 +470,7 @@
                 <div class="tabs">
                     <button class="tab active" data-tab="machine">🏭 Gép szerint</button>
                     <button class="tab" data-tab="auftrag">📋 Megrendelés szerint</button>
+                    <button class="tab" data-tab="date">📅 Dátum szerint</button>
                 </div>
 
                 <!-- Machine search -->
@@ -484,8 +485,17 @@
 
                 <!-- Auftrag search -->
                 <div id="auftrag-search" class="search-section" style="display: none;">
-                    <input type="text" id="auftragInput" placeholder="Megrendelés szám vagy név...">
+                    <input type="text" id="auftragInput" placeholder="Megrendelés szám (részlet is elég)...">
                     <button class="btn-primary" id="searchAuftragBtn" style="flex: 0 0 auto; width: auto; padding: 14px 24px;">
+                        🔍 Keresés
+                    </button>
+                </div>
+
+                <!-- Date search -->
+                <div id="date-search" class="search-section" style="display: none;">
+                    <input type="date" id="dateFrom" style="flex:1;">
+                    <input type="date" id="dateTo" style="flex:1;">
+                    <button class="btn-primary" id="searchDateBtn" style="flex: 0 0 auto; width: auto; padding: 14px 24px;">
                         🔍 Keresés
                     </button>
                 </div>
@@ -598,6 +608,7 @@
                 const which = tab.dataset.tab;
                 document.getElementById('machine-search').style.display = which === 'machine' ? 'flex' : 'none';
                 document.getElementById('auftrag-search').style.display = which === 'auftrag' ? 'flex' : 'none';
+                document.getElementById('date-search').style.display = which === 'date' ? 'flex' : 'none';
             });
         });
 
@@ -632,18 +643,64 @@
         });
 
         // ==============================
-        // SEARCH BY AUFTRAG
+        // SEARCH BY AUFTRAG (client-side contains)
         // ==============================
         document.getElementById('searchAuftragBtn').addEventListener('click', async () => {
-            const val = document.getElementById('auftragInput').value.trim();
+            const val = document.getElementById('auftragInput').value.trim().toLowerCase();
             if (!val) { alert('Adj meg megrendelés számot!'); return; }
-            await searchOperations('auftrag_id', val);
+            await searchAllWithFilter(op => {
+                const aid = (op.auftrag_id || '').toLowerCase();
+                return aid.includes(val);
+            });
         });
 
         // Also search on Enter
         document.getElementById('auftragInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') document.getElementById('searchAuftragBtn').click();
         });
+
+        // ==============================
+        // SEARCH BY DATE
+        // ==============================
+        document.getElementById('searchDateBtn').addEventListener('click', async () => {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            if (!from && !to) { alert('Adj meg legalább egy dátumot!'); return; }
+
+            const fromDate = from ? new Date(from + 'T00:00:00').toISOString() : null;
+            const toDate = to ? new Date(to + 'T23:59:59').toISOString() : null;
+
+            await searchAllWithFilter(op => {
+                const st = op.start_time || '';
+                if (fromDate && st < fromDate) return false;
+                if (toDate && st > toDate) return false;
+                return true;
+            });
+        });
+
+        // ==============================
+        // CLIENT-SIDE FILTER SEARCH (loads all, filters locally)
+        // ==============================
+        async function searchAllWithFilter(filterFn) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:15px;color:#999;">Keresés...</p></div>';
+
+            try {
+                const snapshot = await window.getDocs(window.collection(window.db, 'operations'));
+                const allOps = [];
+                snapshot.forEach(docSnap => {
+                    allOps.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                currentResults = allOps.filter(filterFn);
+                currentResults.sort((a, b) => (b.start_time || '').localeCompare(a.start_time || ''));
+
+                renderResults();
+            } catch (err) {
+                console.error('Search error:', err);
+                container.innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Hiba a keresésnél!</p></div>';
+            }
+        }
 
         // ==============================
         // GENERIC SEARCH
