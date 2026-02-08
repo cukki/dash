@@ -352,6 +352,58 @@
             padding: 40px;
         }
 
+        /* Recent operations table */
+        .recent-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .recent-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .recent-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+
+        .recent-table tr:hover td {
+            background: #f8f9ff;
+        }
+
+        .recent-table .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .recent-table .status-dot.active { background: #34C759; }
+        .recent-table .status-dot.interrupted { background: #FF9500; }
+        .recent-table .status-dot.completed { background: #667eea; }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .spinner {
             display: inline-block;
             width: 40px;
@@ -404,6 +456,16 @@
                 <div class="subtitle">Munkák lekérdezése és áttekintése</div>
             </div>
             <div class="content">
+                <!-- Recent operations overview -->
+                <div id="recent-section">
+                    <div class="section-title">📋 Utolsó 10 munka</div>
+                    <div id="recent-table-container">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 25px 0;">
+
                 <!-- Tabs -->
                 <div class="tabs">
                     <button class="tab active" data-tab="machine">🏭 Gép szerint</button>
@@ -471,7 +533,6 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Sor</th>
                                     <th>Művelet</th>
                                     <th>Festék</th>
                                     <th>Szín</th>
@@ -522,7 +583,6 @@
         // STATE
         // ==============================
         let allOperations = [];
-        let allPauses = [];
         let currentResults = [];
 
         // ==============================
@@ -603,19 +663,6 @@
 
                 // Sort by start_time desc
                 currentResults.sort((a, b) => (b.start_time || '').localeCompare(a.start_time || ''));
-
-                // Load pauses for same field
-                try {
-                    const pq = window.query(
-                        window.collection(window.db, 'pauses'),
-                        window.where(field, '==', value)
-                    );
-                    const pSnapshot = await window.getDocs(pq);
-                    allPauses = [];
-                    pSnapshot.forEach(docSnap => {
-                        allPauses.push({ id: docSnap.id, ...docSnap.data() });
-                    });
-                } catch { allPauses = []; }
 
                 renderResults();
             } catch (err) {
@@ -725,7 +772,6 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><strong>${i + 1}</strong></td>
-                        <td>${r.row_code || '-'}</td>
                         <td>${r.operation ? r.operation.operation_number + '-' + r.operation.operation_seq : '-'}</td>
                         <td><span class="paint-status-dot ${paintSt}"></span>${r.paint?.paint_id || '-'}</td>
                         <td>${r.paint?.color || '-'} (${r.paint?.series || '-'})</td>
@@ -737,8 +783,8 @@
                 rowsSection.style.display = 'none';
             }
 
-            // Find pauses for this operation
-            const opPauses = allPauses.filter(p => p.auftrag_id === op.auftrag_id);
+            // Pauses from operation document
+            const opPauses = op.pauses || [];
             const pausesSection = document.getElementById('pausesSection');
             const pausesList = document.getElementById('pausesList');
             if (opPauses.length > 0) {
@@ -949,6 +995,93 @@
         // INIT
         // ==============================
         loadMachineList();
+        loadRecentOperations();
+
+        // ==============================
+        // LOAD RECENT 10 OPERATIONS
+        // ==============================
+        async function loadRecentOperations() {
+            const container = document.getElementById('recent-table-container');
+            try {
+                const snapshot = await window.getDocs(window.collection(window.db, 'operations'));
+                const ops = [];
+                snapshot.forEach(docSnap => {
+                    ops.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                // Sort by start_time desc, take 10
+                ops.sort((a, b) => (b.start_time || '').localeCompare(a.start_time || ''));
+                const recent = ops.slice(0, 10);
+
+                if (recent.length === 0) {
+                    container.innerHTML = '<p style="color:#999;text-align:center;">Nincs még rögzített munka.</p>';
+                    return;
+                }
+
+                let html = `<table class="recent-table">
+                    <thead>
+                        <tr>
+                            <th>Státusz</th>
+                            <th>Gép</th>
+                            <th>Megrendelés</th>
+                            <th>Kezdés</th>
+                            <th>Utolsó művelet</th>
+                            <th>Operátor</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                recent.forEach(op => {
+                    // Status
+                    let statusDot, statusLabel;
+                    if (op.status === 1) {
+                        statusDot = 'completed'; statusLabel = 'Befejezett';
+                    } else {
+                        statusDot = 'interrupted'; statusLabel = 'Megszakított';
+                    }
+
+                    // Last print row recorded_at
+                    const rows = op.print_rows || [];
+                    let lastOpTime = '-';
+                    if (rows.length > 0) {
+                        const last = rows[rows.length - 1];
+                        lastOpTime = last.recorded_at ? formatDateTime(last.recorded_at) : '-';
+                    }
+
+                    // Current/last operator
+                    const operators = op.operators || [];
+                    let operatorName = op.user_name || '-';
+                    if (operators.length > 0) {
+                        const lastOp = operators[operators.length - 1];
+                        operatorName = lastOp.name || operatorName;
+                    }
+
+                    html += `
+                        <tr style="cursor:pointer;" onclick="window._recentClick(${JSON.stringify(op.id).replace(/"/g, '&quot;')})">
+                            <td><span class="status-dot ${statusDot}"></span>${statusLabel}</td>
+                            <td><strong>${op.machine_id || '-'}</strong></td>
+                            <td>${op.auftrag_id || '-'}</td>
+                            <td>${op.start_time ? formatDateTime(op.start_time) : '-'}</td>
+                            <td>${lastOpTime}</td>
+                            <td>👤 ${operatorName}</td>
+                        </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+
+                // Store for click handler
+                window._recentOps = recent;
+                window._recentClick = function(docId) {
+                    const op = window._recentOps.find(o => o.id === docId);
+                    if (op) showDetail(op);
+                };
+
+            } catch (err) {
+                console.error('Error loading recent operations:', err);
+                container.innerHTML = '<p style="color:#999;text-align:center;">Hiba a betöltésnél.</p>';
+            }
+        }
     </script>
 </body>
 </html>
