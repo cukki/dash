@@ -576,6 +576,9 @@
         window.query = query;
         window.where = where;
         window.orderBy = orderBy;
+
+        // Signal that Firebase is ready
+        window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
     <script>
@@ -994,8 +997,10 @@
         // ==============================
         // INIT
         // ==============================
-        loadMachineList();
-        loadRecentOperations();
+        window.addEventListener('firebase-ready', () => {
+            loadMachineList();
+            loadRecentOperations();
+        });
 
         // ==============================
         // LOAD RECENT 10 OPERATIONS
