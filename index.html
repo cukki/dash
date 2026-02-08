@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MES Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Dashboard-specific overrides */
+        body {
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 900px;
+        }
+
+        /* Search section */
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-section input,
+        .search-section select {
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'Outfit', sans-serif;
+            transition: border-color 0.3s;
+            background: #f8f9fa;
+        }
+
+        .search-section input:focus,
+        .search-section select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .search-section select {
+            flex: 0 0 180px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 25px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            color: #666;
+            transition: all 0.3s;
+            text-align: center;
+            width: auto;
+            margin-bottom: 0;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab:hover:not(.active) {
+            color: #333;
+        }
+
+        /* Results list */
+        .result-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item:hover {
+            background: #f0f4ff;
+            transform: translateX(4px);
+        }
+
+        .result-item.status-0 {
+            border-left-color: #FF9500;
+        }
+
+        .result-item.status-1 {
+            border-left-color: #34C759;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .result-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .result-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-badge.completed {
+            background: #d4f4dd;
+            color: #1e7e34;
+        }
+
+        .result-badge.interrupted {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .result-meta {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        .result-meta span {
+            margin-right: 15px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        /* Detail view */
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #999;
+            margin-bottom: 12px;
+        }
+
+        /* Operators list */
+        .operator-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .operator-item .op-icon {
+            font-size: 20px;
+        }
+
+        .operator-item .op-name {
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .operator-item .op-time {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Print rows table */
+        .row-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 6px;
+        }
+
+        .row-table th {
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            font-weight: 600;
+        }
+
+        .row-table td {
+            padding: 12px;
+            background: #f8f9fa;
+            font-size: 14px;
+        }
+
+        .row-table tr td:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+
+        .row-table tr td:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+
+        .paint-status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .paint-status-dot.ok { background: #34C759; }
+        .paint-status-dot.warning { background: #FF9500; }
+        .paint-status-dot.expired { background: #FF3B30; }
+
+        /* === GANTT TIMELINE === */
+        .gantt-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .gantt-header {
+            display: flex;
+            margin-bottom: 4px;
+            padding-left: 110px;
+            position: relative;
+        }
+
+        .gantt-time-label {
+            font-size: 10px;
+            color: #aaa;
+            text-align: center;
+            position: absolute;
+            transform: translateX(-50%);
+        }
+
+        .gantt-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            min-height: 32px;
+        }
+
+        .gantt-label {
+            width: 100px;
+            flex-shrink: 0;
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            padding-right: 10px;
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .gantt-track {
+            flex: 1;
+            height: 28px;
+            position: relative;
+            background: #eee;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .gantt-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            min-width: 2px;
+            transition: opacity 0.2s;
+            cursor: default;
+        }
+
+        .gantt-bar:hover {
+            opacity: 0.85;
+        }
+
+        .gantt-bar.work { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .gantt-bar.pause-étkezés { background: #FF9500; }
+        .gantt-bar.pause-festék { background: #AF52DE; }
+        .gantt-bar.pause-anyag { background: #5AC8FA; }
+        .gantt-bar.pause-mérés { background: #FF2D55; }
+        .gantt-bar.pause { background: #FF9500; }
+        .gantt-bar.row-item { background: #34C759; }
+
+        .gantt-legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .gantt-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .gantt-legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+        }
+
+        /* Loading spinner */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .search-section {
+                flex-direction: column;
+            }
+
+            .search-section select {
+                flex: 1;
+            }
+
+            .row-table {
+                font-size: 12px;
+            }
+
+            .row-table th, .row-table td {
+                padding: 8px 6px;
+            }
+
+            .gantt-label {
+                width: 70px;
+                font-size: 10px;
+            }
+
+            .gantt-header {
+                padding-left: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- QUERY VIEW -->
+        <div id="query-view">
+            <div class="header">
+                <h1>📊 MES Dashboard</h1>
+                <div class="subtitle">Munkák lekérdezése és áttekintése</div>
+            </div>
+            <div class="content">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab active" data-tab="machine">🏭 Gép szerint</button>
+                    <button class="tab" data-tab="auftrag">📋 Megrendelés szerint</button>
+                </div>
+
+                <!-- Machine search -->
+                <div id="machine-search" class="search-section">
+                    <select id="machineSelect">
+                        <option value="">-- Válassz gépet --</option>
+                    </select>
+                    <button class="btn-primary" id="searchMachineBtn" style="flex: 0 0 auto; width: auto; padding: 14px 24px;">
+                        🔍 Keresés
+                    </button>
+                </div>
+
+                <!-- Auftrag search -->
+                <div id="auftrag-search" class="search-section" style="display: none;">
+                    <input type="text" id="auftragInput" placeholder="Megrendelés szám vagy név...">
+                    <button class="btn-primary" id="searchAuftragBtn" style="flex: 0 0 auto; width: auto; padding: 14px 24px;">
+                        🔍 Keresés
+                    </button>
+                </div>
+
+                <!-- Results -->
+                <div id="results-container">
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>Válassz szűrőt és indítsd a keresést</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DETAIL VIEW -->
+        <div id="detail-view" style="display: none;">
+            <div class="header">
+                <h1>📋 Munka részletek</h1>
+            </div>
+            <div class="content">
+                <button class="btn-secondary" id="backBtn" style="margin-bottom: 20px;">
+                    ← Vissza a listához
+                </button>
+
+                <!-- Summary card -->
+                <div class="info-card" id="detailSummary"></div>
+
+                <!-- Gantt timeline -->
+                <div class="detail-section">
+                    <h3>⏱️ Idővonal</h3>
+                    <div class="gantt-container" id="ganttContainer"></div>
+                </div>
+
+                <!-- Operators -->
+                <div class="detail-section" id="operatorsSection" style="display: none;">
+                    <h3>👥 Operátorok</h3>
+                    <div id="operatorsList"></div>
+                </div>
+
+                <!-- Print rows -->
+                <div class="detail-section" id="rowsSection" style="display: none;">
+                    <h3>🖨️ Nyomtatási sorok</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="row-table" id="rowsTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Sor</th>
+                                    <th>Művelet</th>
+                                    <th>Festék</th>
+                                    <th>Szín</th>
+                                    <th>Idő</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rowsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Pauses -->
+                <div class="detail-section" id="pausesSection" style="display: none;">
+                    <h3>⏸️ Szünetek</h3>
+                    <div id="pausesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js';
+        import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "timemonitoring-ku.firebaseapp.com",
+            projectId: "timemonitoring-ku",
+            storageBucket: "timemonitoring-ku.firebasestorage.app",
+            messagingSenderId: "1085277232669",
+            appId: "1:1085277232669:web:27500d6651d66ba12e30f4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.db = db;
+        window.collection = collection;
+        window.getDocs = getDocs;
+        window.query = query;
+        window.where = where;
+        window.orderBy = orderBy;
+    </script>
+
+    <script>
+        // ==============================
+        // STATE
+        // ==============================
+        let allOperations = [];
+        let allPauses = [];
+        let currentResults = [];
+
+        // ==============================
+        // TAB SWITCHING
+        // ==============================
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const which = tab.dataset.tab;
+                document.getElementById('machine-search').style.display = which === 'machine' ? 'flex' : 'none';
+                document.getElementById('auftrag-search').style.display = which === 'auftrag' ? 'flex' : 'none';
+            });
+        });
+
+        // ==============================
+        // LOAD MACHINE LIST
+        // ==============================
+        async function loadMachineList() {
+            try {
+                const snapshot = await window.getDocs(window.collection(window.db, 'operations'));
+                const machines = new Set();
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (d.machine_id) machines.add(d.machine_id);
+                });
+                const select = document.getElementById('machineSelect');
+                [...machines].sort().forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    select.appendChild(opt);
+                });
+            } catch (err) { console.error('Error loading machines:', err); }
+        }
+
+        // ==============================
+        // SEARCH BY MACHINE
+        // ==============================
+        document.getElementById('searchMachineBtn').addEventListener('click', async () => {
+            const machineId = document.getElementById('machineSelect').value;
+            if (!machineId) { alert('Válassz gépet!'); return; }
+            await searchOperations('machine_id', machineId);
+        });
+
+        // ==============================
+        // SEARCH BY AUFTRAG
+        // ==============================
+        document.getElementById('searchAuftragBtn').addEventListener('click', async () => {
+            const val = document.getElementById('auftragInput').value.trim();
+            if (!val) { alert('Adj meg megrendelés számot!'); return; }
+            await searchOperations('auftrag_id', val);
+        });
+
+        // Also search on Enter
+        document.getElementById('auftragInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('searchAuftragBtn').click();
+        });
+
+        // ==============================
+        // GENERIC SEARCH
+        // ==============================
+        async function searchOperations(field, value) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:15px;color:#999;">Keresés...</p></div>';
+
+            try {
+                // Load operations
+                const q = window.query(
+                    window.collection(window.db, 'operations'),
+                    window.where(field, '==', value)
+                );
+                const snapshot = await window.getDocs(q);
+                currentResults = [];
+                snapshot.forEach(docSnap => {
+                    currentResults.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                // Sort by start_time desc
+                currentResults.sort((a, b) => (b.start_time || '').localeCompare(a.start_time || ''));
+
+                // Load pauses for same field
+                try {
+                    const pq = window.query(
+                        window.collection(window.db, 'pauses'),
+                        window.where(field, '==', value)
+                    );
+                    const pSnapshot = await window.getDocs(pq);
+                    allPauses = [];
+                    pSnapshot.forEach(docSnap => {
+                        allPauses.push({ id: docSnap.id, ...docSnap.data() });
+                    });
+                } catch { allPauses = []; }
+
+                renderResults();
+            } catch (err) {
+                console.error('Search error:', err);
+                container.innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Hiba a keresésnél! Ellenőrizd a Firestore indexeket.</p></div>';
+            }
+        }
+
+        // ==============================
+        // RENDER RESULTS LIST
+        // ==============================
+        function renderResults() {
+            const container = document.getElementById('results-container');
+
+            if (currentResults.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Nincs találat</p></div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            currentResults.forEach((op, idx) => {
+                const div = document.createElement('div');
+                div.className = `result-item status-${op.status}`;
+
+                const statusText = op.status === 1 ? 'Befejezett' : 'Megszakított';
+                const statusClass = op.status === 1 ? 'completed' : 'interrupted';
+                const rows = op.print_rows || [];
+                const elapsed = formatSec(op.elapsed_seconds || 0);
+                const startDate = op.start_time ? formatDate(op.start_time) : '-';
+                const machine = op.machine_id || '-';
+                const auftrag = op.auftrag_id || '-';
+
+                div.innerHTML = `
+                    <div class="result-header">
+                        <div class="result-title">${auftrag}</div>
+                        <span class="result-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="result-meta">
+                        <span>🏭 ${machine}</span>
+                        <span>🖨️ ${rows.length} sor</span>
+                        <span>⏱️ ${elapsed}</span>
+                        <span>📅 ${startDate}</span>
+                    </div>
+                `;
+
+                div.addEventListener('click', () => showDetail(op));
+                container.appendChild(div);
+            });
+        }
+
+        // ==============================
+        // DETAIL VIEW
+        // ==============================
+        function showDetail(op) {
+            document.getElementById('query-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'block';
+
+            const rows = op.print_rows || [];
+            const ops = op.operators || [];
+            const elapsed = formatSec(op.elapsed_seconds || 0);
+            const statusText = op.status === 1 ? '✅ Befejezett' : '⚠️ Megszakított';
+
+            // Summary
+            document.getElementById('detailSummary').innerHTML = `
+                <div class="label">Megrendelés</div>
+                <div class="value">${op.auftrag_id || '-'}</div>
+                <div class="label">Gép</div>
+                <div class="value">${op.machine_id || '-'}</div>
+                <div class="label">Státusz</div>
+                <div class="value">${statusText}</div>
+                <div class="label">Összes idő</div>
+                <div class="value">${elapsed}</div>
+                <div class="label">Kezdés</div>
+                <div class="value">${op.start_time ? formatDateTime(op.start_time) : '-'}</div>
+                <div class="label">${op.status === 1 ? 'Befejezés' : 'Megszakítás'}</div>
+                <div class="value">${formatDateTime(op.end_time || op.interrupted_at || '-')}</div>
+                <div class="label">Sorok száma</div>
+                <div class="value">${rows.length} db</div>
+            `;
+
+            // Operators
+            const opSection = document.getElementById('operatorsSection');
+            const opList = document.getElementById('operatorsList');
+            if (ops.length > 0) {
+                opSection.style.display = 'block';
+                opList.innerHTML = '';
+                ops.forEach(o => {
+                    const from = o.started_at ? formatTime(o.started_at) : '?';
+                    const to = o.ended_at ? formatTime(o.ended_at) : 'aktív';
+                    const div = document.createElement('div');
+                    div.className = 'operator-item';
+                    div.innerHTML = `<span class="op-icon">👤</span><span class="op-name">${o.name}</span><span class="op-time">${from} → ${to}</span>`;
+                    opList.appendChild(div);
+                });
+            } else {
+                opSection.style.display = 'none';
+            }
+
+            // Print rows table
+            const rowsSection = document.getElementById('rowsSection');
+            const tbody = document.getElementById('rowsTableBody');
+            if (rows.length > 0) {
+                rowsSection.style.display = 'block';
+                tbody.innerHTML = '';
+                rows.forEach((r, i) => {
+                    const paintSt = r.paint?.expired_status || 'ok';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${i + 1}</strong></td>
+                        <td>${r.row_code || '-'}</td>
+                        <td>${r.operation ? r.operation.operation_number + '-' + r.operation.operation_seq : '-'}</td>
+                        <td><span class="paint-status-dot ${paintSt}"></span>${r.paint?.paint_id || '-'}</td>
+                        <td>${r.paint?.color || '-'} (${r.paint?.series || '-'})</td>
+                        <td>${r.recorded_at ? formatTime(r.recorded_at) : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                rowsSection.style.display = 'none';
+            }
+
+            // Find pauses for this operation
+            const opPauses = allPauses.filter(p => p.auftrag_id === op.auftrag_id);
+            const pausesSection = document.getElementById('pausesSection');
+            const pausesList = document.getElementById('pausesList');
+            if (opPauses.length > 0) {
+                pausesSection.style.display = 'block';
+                pausesList.innerHTML = '';
+                opPauses.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'operator-item';
+                    const icon = p.pause_type === 'étkezés' ? '🍽️' :
+                                 p.pause_type === 'festék' ? '🎨' :
+                                 p.pause_type === 'anyag' ? '📦' : '📏';
+                    const dur = formatSec(p.duration || 0);
+                    const from = p.start_time ? formatTime(p.start_time) : '?';
+                    const to = p.end_time ? formatTime(p.end_time) : '?';
+                    div.innerHTML = `<span class="op-icon">${icon}</span><span class="op-name">${p.pause_type}</span><span class="op-time">${from} → ${to} (${dur})</span>`;
+                    pausesList.appendChild(div);
+                });
+            } else {
+                pausesSection.style.display = 'none';
+            }
+
+            // Build Gantt
+            buildGantt(op, opPauses);
+        }
+
+        document.getElementById('backBtn').addEventListener('click', () => {
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('query-view').style.display = 'block';
+        });
+
+        // ==============================
+        // GANTT TIMELINE
+        // ==============================
+        function buildGantt(op, pauses) {
+            const container = document.getElementById('ganttContainer');
+            container.innerHTML = '';
+
+            const startTime = new Date(op.start_time).getTime();
+            const endTime = new Date(op.end_time || op.interrupted_at || new Date()).getTime();
+            const totalSpan = endTime - startTime;
+
+            if (totalSpan <= 0) {
+                container.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">Nincs elegendő adat az idővonalhoz</p>';
+                return;
+            }
+
+            function pct(ts) {
+                return Math.max(0, Math.min(100, ((ts - startTime) / totalSpan) * 100));
+            }
+
+            function barStyle(leftPct, widthPct) {
+                return `left:${leftPct}%;width:${Math.max(widthPct, 0.5)}%;`;
+            }
+
+            // Time axis header
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'gantt-header';
+            headerDiv.style.position = 'relative';
+            headerDiv.style.height = '20px';
+            headerDiv.style.marginBottom = '8px';
+            headerDiv.style.paddingLeft = '110px';
+
+            const numTicks = Math.min(6, Math.max(2, Math.floor(container.offsetWidth / 120)));
+            for (let i = 0; i <= numTicks; i++) {
+                const frac = i / numTicks;
+                const ts = startTime + frac * totalSpan;
+                const label = document.createElement('span');
+                label.className = 'gantt-time-label';
+                label.style.left = `calc(110px + ${frac * 100}% * (100% - 110px) / 100%)`;
+                label.style.left = `${frac * 100}%`;
+                label.textContent = formatTime(new Date(ts).toISOString());
+                headerDiv.appendChild(label);
+            }
+            container.appendChild(headerDiv);
+
+            // 1. Overall work bar
+            addGanttRow(container, 'Munka', [
+                { left: 0, width: 100, cls: 'work', label: formatSec(op.elapsed_seconds || Math.round(totalSpan / 1000)) }
+            ]);
+
+            // 2. Pause bars
+            if (pauses.length > 0) {
+                const pauseBars = pauses.map(p => {
+                    const ps = new Date(p.start_time).getTime();
+                    const pe = new Date(p.end_time).getTime();
+                    return {
+                        left: pct(ps),
+                        width: pct(pe) - pct(ps),
+                        cls: `pause-${p.pause_type || 'pause'}`,
+                        label: p.pause_type || 'szünet'
+                    };
+                });
+                addGanttRow(container, 'Szünetek', pauseBars);
+            }
+
+            // 3. Operator bars
+            const ops = op.operators || [];
+            if (ops.length > 1) {
+                const opBars = ops.map(o => {
+                    const os = new Date(o.started_at).getTime();
+                    const oe = o.ended_at ? new Date(o.ended_at).getTime() : endTime;
+                    return {
+                        left: pct(os),
+                        width: pct(oe) - pct(os),
+                        cls: 'work',
+                        label: o.name.split(' ').pop() // last name
+                    };
+                });
+                addGanttRow(container, 'Operátorok', opBars);
+            }
+
+            // 4. Print rows as events
+            const rows = op.print_rows || [];
+            if (rows.length > 0) {
+                const rowBars = rows.map((r, i) => {
+                    const rt = new Date(r.recorded_at).getTime();
+                    return {
+                        left: pct(rt),
+                        width: Math.max(2, 100 / rows.length * 0.6),
+                        cls: 'row-item',
+                        label: `#${i + 1}`
+                    };
+                });
+                addGanttRow(container, 'Sorok', rowBars);
+            }
+
+            // Legend
+            const legend = document.createElement('div');
+            legend.className = 'gantt-legend';
+            const legendItems = [
+                { color: 'linear-gradient(135deg, #667eea, #764ba2)', text: 'Munka' },
+                { color: '#FF9500', text: 'Étkezés' },
+                { color: '#AF52DE', text: 'Festékre vár' },
+                { color: '#5AC8FA', text: 'Anyagra vár' },
+                { color: '#FF2D55', text: 'Mérésre vár' },
+                { color: '#34C759', text: 'Sor rögzítés' }
+            ];
+            legendItems.forEach(li => {
+                const item = document.createElement('div');
+                item.className = 'gantt-legend-item';
+                item.innerHTML = `<div class="gantt-legend-color" style="background:${li.color};"></div>${li.text}`;
+                legend.appendChild(item);
+            });
+            container.appendChild(legend);
+        }
+
+        function addGanttRow(container, label, bars) {
+            const row = document.createElement('div');
+            row.className = 'gantt-row';
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'gantt-label';
+            labelEl.textContent = label;
+            row.appendChild(labelEl);
+
+            const track = document.createElement('div');
+            track.className = 'gantt-track';
+
+            bars.forEach(b => {
+                const bar = document.createElement('div');
+                bar.className = `gantt-bar ${b.cls}`;
+                bar.style.cssText = `left:${b.left}%;width:${Math.max(b.width, 0.5)}%;`;
+                bar.title = b.label;
+                if (b.width > 8) bar.textContent = b.label;
+                track.appendChild(bar);
+            });
+
+            row.appendChild(track);
+            container.appendChild(row);
+        }
+
+        // ==============================
+        // FORMAT HELPERS
+        // ==============================
+        function formatSec(sec) {
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+            if (h > 0) return `${h}ó ${m}p`;
+            if (m > 0) return `${m}p ${s}s`;
+            return `${s}s`;
+        }
+
+        function formatDate(isoStr) {
+            if (!isoStr || isoStr === '-') return '-';
+            try {
+                const d = new Date(isoStr);
+                return d.toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch { return isoStr; }
+        }
+
+        function formatTime(isoStr) {
+            if (!isoStr || isoStr === '-') return '-';
+            try {
+                const d = new Date(isoStr);
+                return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+            } catch { return isoStr; }
+        }
+
+        function formatDateTime(isoStr) {
+            if (!isoStr || isoStr === '-') return '-';
+            try {
+                const d = new Date(isoStr);
+                return d.toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' }) +
+                    ' ' + d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+            } catch { return isoStr; }
+        }
+
+        // ==============================
+        // INIT
+        // ==============================
+        loadMachineList();
+    </script>
+</body>
+</html>
